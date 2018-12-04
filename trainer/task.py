@@ -17,14 +17,9 @@ from sklearn.model_selection import train_test_split
 
 from .dataGenerator import Generator
 
-import keras
-from keras.models import Sequential, Model
-from keras.layers import Dense
-from keras.layers import Dropout
-from keras.layers import Flatten
-from keras.layers import Input
-from keras.applications.vgg16 import VGG16
+from .model import build_model
 
+import keras
 from keras import callbacks
 import tensorflow as tf
 import argparse
@@ -39,23 +34,6 @@ genresRev = ['metal', 'disco', 'classical', 'hiphop', 'jazz',
 num_genres = len(genres)
 batch_size = 5
 exec_time = datetime.now()
-
-def build_model(input_shape, num_genres, freezed_layers = 5):
-    input_tensor = Input(shape=input_shape)
-    vgg16 = VGG16(include_top=False, weights=None,
-                  input_tensor=input_tensor)
-
-    top = Sequential()
-    top.add(Flatten(input_shape=vgg16.output_shape[1:]))
-    top.add(Dense(256, activation='relu'))
-    top.add(Dropout(0.5))
-    top.add(Dense(num_genres, activation='softmax'))
-
-    model = Model(inputs=vgg16.input, outputs=top(vgg16.output))
-    for layer in model.layers[:freezed_layers]:
-        layer.trainable = False
-
-    return model
 
 def read_filenames_and_labels(job_dir):
     filenames = file_io.get_matching_files(job_dir+"genres/**/*.*")
