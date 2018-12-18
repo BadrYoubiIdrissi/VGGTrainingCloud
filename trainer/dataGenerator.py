@@ -5,20 +5,19 @@ from sklearn.model_selection import train_test_split
 from scipy import signal
 import numpy as np
 import soundfile
+import librosa
 import os
 from tensorflow.python.lib.io import file_io
 
 
 class Generator(Sequence):
 
-    def __init__(self, filenames, labels, batch_size, window = 0.025, overlap = 0.5, fs=22050, nperseg=512, song_samples=660000):
+    def __init__(self, filenames, labels, batch_size, window = 2, fs=16128, nperseg=256):
         self.filenames, self.labels = filenames, labels
         self.batch_size = batch_size
-        self.window = window
-        self.overlap = overlap
+        self.window = window #in seconds
         self.fs = fs
         self.nperseg = nperseg
-        self.song_samples = song_samples
 
     def __len__(self):
         return int(np.ceil(len(self.filenames) / float(self.batch_size)))
@@ -35,14 +34,19 @@ class Generator(Sequence):
             X.append(x)
             Y.append(y)
 
-        return np.concatenate(X), np.concatenate(Y)
+        X = np.concatenate(X)
+        Y = np.concatenate(Y)
+        return X,Y 
     
     def load_from_filename(self, filename, label):
+        print("Loading file : "+filename)
         tmp = file_io.FileIO(filename, "rb")
-        signal, fs = soundfile.read(tmp)
-        self.fs = fs
-        signal = signal[:self.song_samples]
-        signals, y = self.splitsongs(signal, label)
+        soundSignal, orig_fs = soundfile.read(tmp)
+        print("Resampling")
+        soundSignal = librosa.resample(soundSignal, orig_fs, self.fs, res_type="kaiser_fast")
+        #self.fs = orig_fs
+        signals, y = self.splitsongs(soundSignal, label)
+        print("Performin stft")
         specs = self.to_stft(signals)
         return specs, to_categorical(np.array(y), num_classes=10, dtype='int32')
 
@@ -56,11 +60,15 @@ class Generator(Sequence):
 
         # Get the input song array size
         xshape = X.shape[0]
-        chunk = int(xshape*self.window)
-        offset = int(chunk*(1.-self.overlap))
+        chunk = int(self.fs*self.window)
+        #offset = int(chunk*(1.-self.overlap))
         
         # Split the song and create new ones on windows
-        spsong = [X[i:i+chunk] for i in range(0, xshape - chunk + offset, offset)]
+        #spsong = [X[i:i+chunk] for i in range(0, xshape - chunk + offset, offset)]
+        truncate = xshape - (xshape % chunk)
+        X = X[:truncate]
+
+        spsong = [X[i:i+chunk] for i in range(0,X.shape[0], chunk)]
         for s in spsong:
             temp_X.append(s)
             temp_y.append(y)
@@ -69,7 +77,8 @@ class Generator(Sequence):
 
     def stft(self, x):
         _, _, Zxx = signal.stft(x, fs=self.fs, nperseg=self.nperseg)
-        return np.stack([20*np.log(abs(Zxx)+1e-5),np.angle(Zxx)], axis=-1)
+        #return np.stack([20*np.log(abs(Zxx)+1e-5),np.angle(Zxx)], axis=-1)
+        return (20*np.log(abs(Zxx)+1e-5))
 
     def istft(self, x):
         pass
@@ -81,5 +90,5 @@ class Generator(Sequence):
         stftMap = lambda x: self.stft(x)
 
         # map transformation of input songs to stft
-        tsongs = map(stftMap, songs)
-        return np.array(list(tsongs))
+        tsongs = list(map(stftMap, songs))
+        return np.array(tsongs)

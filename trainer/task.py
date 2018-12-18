@@ -26,13 +26,12 @@ import argparse
 from tensorflow.python.lib.io import file_io
 
 # Constants
-song_samples = 660000
 genres = {'metal': 0, 'disco': 1, 'classical': 2, 'hiphop': 3, 'jazz': 4, 
           'country': 5, 'pop': 6, 'blues': 7, 'reggae': 8, 'rock': 9}
 genresRev = ['metal', 'disco', 'classical', 'hiphop', 'jazz', 
           'country', 'pop', 'blues', 'reggae', 'rock']
 num_genres = len(genres)
-batch_size = 5
+batch_size = 100
 exec_time = datetime.now()
 
 def read_filenames_and_labels(job_dir):
@@ -48,26 +47,24 @@ def main(job_dir, **args):
     # Transform to a 3-channel image
     fn_train, fn_test, y_train, y_test = train_test_split(filenames, labels, test_size=0.3, random_state=42, stratify = labels)
 
-    train_batch_gen = Generator(fn_train, y_train, batch_size)
+    train_batch_gen = Generator(fn_train, y_train, batch_size, window=2, fs=16128, nperseg=256)
 
-    test_batch_gen = Generator(fn_test, y_test, batch_size)
+    test_batch_gen = Generator(fn_test, y_test, batch_size, window=2, fs=16128, nperseg=256)
 
     # Training step
-    input_shape = (129,130,2)
+    input_shape = (129,253)
     cnn = build_model(input_shape, num_genres)
     cnn.compile(loss=keras.losses.categorical_crossentropy,
             optimizer=keras.optimizers.Adam(),
             metrics=['accuracy'])
 
-    tensorboard = callbacks.TensorBoard(log_dir=logs_path, histogram_freq=0, write_graph=True, write_images=True)
+    #tensorboard = callbacks.TensorBoard(log_dir=logs_path, histogram_freq=0, write_graph=True, write_images=True)
 
     cnn.fit_generator(generator=train_batch_gen, 
                         steps_per_epoch=len(fn_train)//batch_size,
                         epochs=50,
                         verbose=1,
-                        use_multiprocessing=True,
-                        workers=8,
-                        callbacks=[tensorboard])
+                        workers=8)
     # Evaluate
     score = cnn.evaluate_generator(test_batch_gen, len(fn_test)//batch_size, verbose = 0)
     print("val_loss = {:.3f} and val_acc = {:.3f}".format(score[0], score[1]))

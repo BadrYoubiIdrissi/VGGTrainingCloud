@@ -10,6 +10,7 @@ setup(name='trainer',
       install_requires=[
           'keras',
           'h5py',
-          'pysoundfile'
+          'pysoundfile',
+          'librosa'
       ],
       zip_safe=False)

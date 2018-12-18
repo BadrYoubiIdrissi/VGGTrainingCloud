@@ -1,1 +1,1 @@
-gcloud ml-engine jobs submit training JOB5 --module-name=trainer.task --package-path=./trainer --job-dir=gs://featurevisualization --region=europe-west1 --config=trainer/cloudml-gpu.yaml
+gcloud ml-engine jobs submit training training_badr_7 --module-name=trainer.task --package-path=./trainer --job-dir=gs://featurevisualization --region=europe-west1 --config=trainer/cloudml-gpu.yaml
